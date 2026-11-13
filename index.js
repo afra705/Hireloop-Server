@@ -38,6 +38,14 @@ app.get('/users', async(req, res) => {
   res.send(result)
 })
 
+app.get('/users/:id/premium', async(req, res) => {
+  const id = req.params.id
+  const query = {_id: new ObjectId(id)}
+  const result = await users.findOne(query)
+  res.send(result)
+})
+
+
 // jobreleted data
 
 app.get('/jobs', async (req, res) => {
@@ -209,14 +217,28 @@ app.post('/payments/checkout-verify', async (req, res) => {
                 premium: true,
             }
         }
-        const updateResult = await users.updateOne(
-            query,
-            updatedDoc
-        );
-        res.send({ success: true, result, updateResult });
-        return
+
+const userId = metadata?.userId;
+
+if (!ObjectId.isValid(userId)) {
+  return res.status(400).send({
+    success: false,
+    message: "Invalid user ID"
+  });
+}
+
+const updateResult = await users.updateOne(
+  { _id: new ObjectId(userId) },
+  {
+    $set: {
+      premium: true
     }
-    res.send({ success: false, message: 'Payment verification failed' });
+  }
+);
+
+console.log("Update result:", updateResult);
+
+      }
 })
 
 
