@@ -2,6 +2,9 @@ import express from 'express';
 import cors from 'cors'
 import 'dotenv/config'
 import { MongoClient, ObjectId } from 'mongodb';
+import Stripe from 'stripe'
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 const app = express()
 const port = 5000
@@ -26,6 +29,7 @@ const database = connectedClient.db('hireloop')
 const users = database.collection('user')
 const jobs = database.collection('jobs')
 const applications = database.collection('applications')
+const payments = database.collection('payments')
 
 // user
 app.get('/users', async(req, res) => {
@@ -159,6 +163,62 @@ app.delete('/jobs/:id', async(req, res) => {
     res.status(400).send({ message: 'Invalid job id' })
   }
 })
+
+// payment related apis
+
+app.post('/payments/checkout-verify', async (req, res) => {
+    const { sessionId } = req.body;
+
+    if (!sessionId) {
+        return res.send({ success: false, message: 'Session ID is required' });
+    }
+
+    const {
+        status,
+        payment_status,
+        customer_email,
+        metadata,
+        payment_intent,
+    } = await stripe.checkout.sessions.retrieve(sessionId);
+
+
+    if (status === 'complete' && payment_status === 'paid') {
+
+        const sessionQuery = { sessionId };
+        const existingPayment = await payments.findOne(sessionQuery);
+        if (existingPayment) {
+            return res.send({ success: false, message: 'Payment already verified' });
+        }
+        const payment = {
+            sessionId,
+            status,
+            payment_status,
+            customer_email,
+            userId: metadata.userId,
+            payment_date: new Date(),
+            payment_intent,
+        }
+
+        const result = await payments.insertOne(payment);
+
+        // update the user table
+        const query = { _id: new ObjectId(metadata.userId) };
+
+        const updatedDoc = {
+            $set: {
+                premium: true,
+            }
+        }
+        const updateResult = await users.updateOne(
+            query,
+            updatedDoc
+        );
+        res.send({ success: true, result, updateResult });
+        return
+    }
+    res.send({ success: false, message: 'Payment verification failed' });
+})
+
 
 
 app.get('/', (req, res) => {
