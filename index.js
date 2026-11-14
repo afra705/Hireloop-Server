@@ -66,6 +66,9 @@ app.get('/jobs', async (req, res) => {
       query.category = req.query.category;
     }
 
+    if(req.query.recruiterId){
+      query.recruiterId = req.query.recruiterId
+    }
     if (req.query.search) {
       const searchText = req.query.search;
 
@@ -126,6 +129,13 @@ app.get('/applications', async(req, res) => {
   if(req.query.applicantId){
     query.userId = req.query.applicantId
   }
+  if(req.query.jobId){
+    query.jobId = req.query.jobId
+  }
+  if(req.query.jobId){
+    query.jobId = req.query.jobId
+  }
+  
   const cursor = applications.find(query)
   const result = await cursor.toArray()
   res.send(result)
@@ -139,6 +149,20 @@ app.get('/applications/count', async(req, res) => {
   const result = await applications.countDocuments(query)
   res.send({count: result})
 })
+
+
+app.patch('/applications/:id', async(req, res) => {
+  const id = req.params.id
+  const query = { _id:new ObjectId(id)}
+  const updatedDoc = {
+    $set: {
+      status: req.body.status
+    }
+  }
+  const result = await applications.updateOne(query, updatedDoc)
+  res.send(result)
+})
+
 
 
 
